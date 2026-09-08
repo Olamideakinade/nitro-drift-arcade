@@ -1,5 +1,5 @@
 /* ========================================================
-   NITRO DRIFT ARCADE v1.1.0 - ENGINE & GAME LOGIC
+   NITRO DRIFT ARCADE v1.2.0 - ENGINE & GAME LOGIC
    ======================================================== */
 
 const canvas = document.getElementById('gameCanvas');
@@ -20,296 +20,379 @@ class SoundSystem {
 
     init() {
         if (this.initialized) return;
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        this.ctx = new AudioContext();
-        
-        // Engine sound setup
-        this.engineOsc = this.ctx.createOscillator();
-        this.engineOsc.type = 'sawtooth';
-        this.engineOsc.frequency.setValueAtTime(60, this.ctx.currentTime);
-        
-        this.engineGain = this.ctx.createGain();
-        this.engineGain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-        
-        this.engineOsc.connect(this.engineGain);
-        this.engineGain.connect(this.ctx.destination);
-        this.engineOsc.start();
-        this.initialized = true;
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContext();
+            
+            // Engine Oscillator
+            this.engineOsc = this.ctx.createOscillator();
+            this.engineOsc.type = 'sawtooth';
+            this.engineOsc.frequency.setValueAtTime(60, this.ctx.currentTime);
+            
+            this.engineGain = this.ctx.createGain();
+            this.engineGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+            
+            this.engineOsc.connect(this.engineGain);
+            this.engineGain.connect(this.ctx.destination);
+            this.engineOsc.start();
+            
+            this.initialized = true;
+        } catch (e) {
+            console.warn('Web Audio API not supported or blocked', e);
+        }
     }
 
-    updateEngine(speed, maxSpeed) {
+    updateEngine(speed, maxSpeed, isAccelerating) {
         if (!this.initialized) return;
-        const freq = 50 + (speed / maxSpeed) * 250;
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+        const freq = 50 + (speed / maxSpeed) * 220;
         this.engineOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.1);
+        const gain = isAccelerating ? 0.12 : 0.04;
+        this.engineGain.gain.setTargetAtTime(gain, this.ctx.currentTime, 0.1);
     }
 
-    playClick() {
+    playUISound(freq = 440, type = 'sine', duration = 0.08) {
         if (!this.initialized) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(800, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.05);
-        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.05);
+        try {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+        } catch(e) {}
     }
 
-    playNitro() {
+    playCrash() {
         if (!this.initialized) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
-        osc.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + 0.4);
-        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.4);
+        try {
+            const bufferSize = this.ctx.sampleRate * 0.3;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buffer;
+            
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(300, this.ctx.currentTime);
+            
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+            
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+            
+            noise.start();
+        } catch(e) {}
     }
 }
 
-const soundSystem = new SoundSystem();
+const sounds = new SoundSystem();
 
-// --- Input Manager ---
-const keys = {
-    ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
-    KeyW: false, KeyS: false, KeyA: false, KeyD: false,
-    ShiftLeft: false, ShiftRight: false, Space: false,
-    Escape: false, KeyP: false
-};
-
-window.addEventListener('keydown', (e) => {
-    soundSystem.init();
-    if (keys.hasOwnProperty(e.code)) keys[e.code] = true;
-    if (e.code === 'Escape' || e.code === 'KeyP') {
-        if (gameState === STATES.PLAYING) pauseGame();
-        else if (gameState === STATES.PAUSED) resumeGame();
-    }
-});
-
-window.addEventListener('keyup', (e) => {
-    if (keys.hasOwnProperty(e.code)) keys[e.code] = false;
-});
-
-// --- Tracks Definitions ---
+// --- Tracks Definition ---
 const tracks = [
     {
         name: "Circuit Noir",
-        startLine: { x: 200, y: 650, width: 120, height: 20 },
-        spawnPos: { x: 260, y: 700, angle: -Math.PI / 2 },
+        spawnX: 200,
+        spawnY: 480,
+        spawnAngle: -Math.PI / 2,
         checkpoints: [
-            { x: 200, y: 200, width: 200, height: 100 },
-            { x: 700, y: 200, width: 200, height: 100 },
-            { x: 700, y: 600, width: 200, height: 100 }
+            { x: 200, y: 150, radius: 80 },
+            { x: 800, y: 150, radius: 80 },
+            { x: 800, y: 480, radius: 80 },
+            { x: 200, y: 480, radius: 80 }
         ],
-        walls: [
-            { x: 100, y: 100, width: 824, height: 40 },
-            { x: 100, y: 628, width: 824, height: 40 },
-            { x: 100, y: 140, width: 40, height: 488 },
-            { x: 884, y: 140, width: 40, height: 488 },
-            { x: 300, y: 250, width: 424, height: 268 }
-        ]
+        draw: function(ctx) {
+            // Asphalt base
+            ctx.fillStyle = '#181824';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Outer & Inner grass/barriers
+            ctx.fillStyle = '#0f2618';
+            ctx.fillRect(100, 80, 824, 416);
+            
+            ctx.fillStyle = '#181824';
+            ctx.fillRect(180, 140, 664, 296);
+
+            // Track border neon glows
+            ctx.strokeStyle = '#00f3ff';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(100, 80, 824, 416);
+            ctx.strokeRect(180, 140, 664, 296);
+
+            // Start / Finish Line
+            ctx.strokeStyle = '#ff0055';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(200, 436);
+            ctx.lineTo(200, 496);
+            ctx.stroke();
+        }
     },
     {
         name: "Oval Speedway",
-        startLine: { x: 452, y: 650, width: 120, height: 20 },
-        spawnPos: { x: 512, y: 700, angle: -Math.PI / 2 },
+        spawnX: 512,
+        spawnY: 460,
+        spawnAngle: 0,
         checkpoints: [
-            { x: 150, y: 300, width: 100, height: 200 },
-            { x: 452, y: 100, width: 120, height: 100 },
-            { x: 774, y: 300, width: 100, height: 200 }
+            { x: 800, y: 288, radius: 100 },
+            { x: 512, y: 120, radius: 100 },
+            { x: 224, y: 288, radius: 100 },
+            { x: 512, y: 460, radius: 100 }
         ],
-        walls: [
-            { x: 200, y: 150, width: 624, height: 40 },
-            { x: 200, y: 578, width: 624, height: 40 },
-            { x: 150, y: 190, width: 50, height: 388 },
-            { x: 824, y: 190, width: 50, height: 388 },
-            { x: 350, y: 280, width: 324, height: 208 }
-        ]
+        draw: function(ctx) {
+            ctx.fillStyle = '#181824';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#1b1b32';
+            ctx.beginPath();
+            ctx.ellipse(512, 288, 420, 200, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#070710';
+            ctx.beginPath();
+            ctx.ellipse(512, 288, 240, 90, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#f3e600';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.ellipse(512, 288, 420, 200, 0, 0, Math.PI * 2);
+            ctx.ellipse(512, 288, 240, 90, 0, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Start / Finish Line
+            ctx.strokeStyle = '#ff0055';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(512, 378);
+            ctx.lineTo(512, 488);
+            ctx.stroke();
+        }
     },
     {
         name: "Viper Canyon",
-        startLine: { x: 200, y: 650, width: 120, height: 20 },
-        spawnPos: { x: 260, y: 700, angle: -Math.PI / 2 },
+        spawnX: 150,
+        spawnY: 288,
+        spawnAngle: 0,
         checkpoints: [
-            { x: 200, y: 120, width: 150, height: 100 },
-            { x: 650, y: 120, width: 150, height: 100 },
-            { x: 650, y: 550, width: 150, height: 100 }
+            { x: 400, y: 120, radius: 80 },
+            { x: 850, y: 180, radius: 80 },
+            { x: 700, y: 440, radius: 80 },
+            { x: 250, y: 420, radius: 80 }
         ],
-        walls: [
-            { x: 120, y: 80, width: 784, height: 40 },
-            { x: 120, y: 648, width: 784, height: 40 },
-            { x: 120, y: 120, width: 40, height: 528 },
-            { x: 864, y: 120, width: 40, height: 528 },
-            { x: 280, y: 240, width: 150, height: 300 },
-            { x: 580, y: 240, width: 150, height: 300 }
-        ]
+        draw: function(ctx) {
+            ctx.fillStyle = '#1a1410';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#2b1e16';
+            ctx.beginPath();
+            ctx.moveTo(100, 200);
+            ctx.lineTo(450, 60);
+            ctx.lineTo(900, 120);
+            ctx.lineTo(920, 480);
+            ctx.lineTo(600, 520);
+            ctx.lineTo(150, 450);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#1a1410';
+            ctx.beginPath();
+            ctx.arc(350, 280, 120, 0, Math.PI * 2);
+            ctx.arc(700, 320, 90, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#ff5500';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Start / Finish Line
+            ctx.strokeStyle = '#00f3ff';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(150, 200);
+            ctx.lineTo(150, 290);
+            ctx.stroke();
+        }
     }
 ];
 
 let currentTrackIndex = 0;
 
-// --- Car Object ---
+// --- Car Physics & State ---
 class Car {
-    constructor(x, y, angle) {
-        this.x = x;
-        this.y = y;
-        this.width = 30;
-        this.height = 56;
-        this.angle = angle;
+    constructor() {
+        this.reset();
+    }
+
+    reset() {
+        const track = tracks[currentTrackIndex];
+        this.x = track.spawnX;
+        this.y = track.spawnY;
+        this.angle = track.spawnAngle;
+        this.vx = 0;
+        this.vy = 0;
         this.speed = 0;
-        this.maxSpeed = 8;
-        this.reverseSpeed = -3;
-        this.acceleration = 0.15;
-        this.braking = 0.3;
+        this.maxSpeed = 7.5;
+        this.acceleration = 0.12;
+        this.braking = 0.2;
         this.friction = 0.98;
-        this.steeringSpeed = 0.05;
+        this.steerSpeed = 0.05;
         this.driftFactor = 0.92;
         this.nitro = 100;
         this.isNitroActive = false;
-        this.driftMultiplier = 1;
-        this.driftTimer = 0;
+        this.width = 28;
+        this.height = 54;
     }
 
-    update() {
-        const accelerating = keys.ArrowUp || keys.KeyW;
-        const reversing = keys.ArrowDown || keys.KeyS;
-        const turningLeft = keys.ArrowLeft || keys.KeyA;
-        const turningRight = keys.ArrowRight || keys.KeyD;
-        const usingNitro = (keys.ShiftLeft || keys.ShiftRight || keys.Space) && this.nitro > 0;
+    update(keys) {
+        let isAccelerating = false;
 
-        // Nitro logic
-        if (usingNitro) {
+        // Nitro usage
+        if (keys['Space'] && this.nitro > 0) {
             this.isNitroActive = true;
-            this.nitro = Math.max(0, this.nitro - 0.6);
-            this.maxSpeed = 13;
-            if (Math.random() < 0.3) soundSystem.playNitro();
+            this.nitro = Math.max(0, this.nitro - 0.8);
+            this.maxSpeed = 11.5;
         } else {
             this.isNitroActive = false;
-            this.maxSpeed = 8;
-            if (this.nitro < 100) this.nitro = Math.min(100, this.nitro + 0.1);
+            this.maxSpeed = 7.5;
+            if (!keys['Space'] && this.nitro < 100) {
+                this.nitro = Math.min(100, this.nitro + 0.15);
+            }
         }
 
-        // Acceleration & Braking
-        if (accelerating) {
-            this.speed += this.acceleration;
-            if (this.speed > this.maxSpeed) this.speed = this.maxSpeed;
-        } else if (reversing) {
-            this.speed -= this.acceleration;
-            if (this.speed < this.reverseSpeed) this.speed = this.reverseSpeed;
+        // Acceleration / Braking
+        if (keys['ArrowUp'] || keys['KeyW']) {
+            this.speed += this.acceleration * (this.isNitroActive ? 1.6 : 1.0);
+            isAccelerating = true;
+        } else if (keys['ArrowDown'] || keys['KeyS']) {
+            this.speed -= this.braking;
         } else {
             this.speed *= this.friction;
         }
 
+        if (this.speed > this.maxSpeed) this.speed = this.maxSpeed;
+        if (this.speed < -this.maxSpeed * 0.4) this.speed = -this.maxSpeed * 0.4;
+
         // Steering
-        if (Math.abs(this.speed) > 0.5) {
-            let steer = this.steeringSpeed * (this.speed / this.maxSpeed);
-            if (turningLeft) this.angle -= steer;
-            if (turningRight) this.angle += steer;
+        let currentSteer = this.steerSpeed * (Math.abs(this.speed) / this.maxSpeed);
+        if (keys['ArrowLeft'] || keys['KeyA']) {
+            this.angle -= currentSteer * Math.sign(this.speed || 0.1);
+        }
+        if (keys['ArrowRight'] || keys['KeyD']) {
+            this.angle += currentSteer * Math.sign(this.speed || 0.1);
         }
 
-        // Drifting mechanics
-        let forwardX = Math.cos(this.angle);
-        let forwardY = Math.sin(this.angle);
+        // Drift mechanics
+        const forwardX = Math.cos(this.angle);
+        const forwardY = Math.sin(this.angle);
         
-        let velocityX = Math.cos(this.angle) * this.speed;
-        let velocityY = Math.sin(this.angle) * this.speed;
+        const targetVx = forwardX * this.speed;
+        const targetVy = forwardY * this.speed;
 
-        // Check drift state
-        let heading = Math.atan2(velocityY, velocityX);
-        let slipAngle = Math.abs(this.angle - heading);
-        if (slipAngle > 0.3 && Math.abs(this.speed) > 4) {
-            this.driftTimer++;
-            this.driftMultiplier = Math.min(5, Math.floor(this.driftTimer / 30) + 1);
-            if (Math.random() < 0.4) {
-                particles.push(new Particle(this.x, this.y, 'smoke'));
+        this.vx = this.vx * this.driftFactor + targetVx * (1 - this.driftFactor);
+        this.vy = this.vy * this.driftFactor + targetVy * (1 - this.driftFactor);
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Update sound
+        sounds.updateEngine(Math.abs(this.speed), this.maxSpeed, isAccelerating);
+
+        // Particles generation
+        if (Math.abs(this.speed) > 3) {
+            particles.push(new Particle(this.x - forwardX * 20, this.y - forwardY * 20, this.isNitroActive ? 'nitro' : 'smoke'));
+            if (keys['ArrowLeft'] || keys['KeyA'] || keys['ArrowRight'] || keys['KeyD']) {
                 particles.push(new Particle(this.x, this.y, 'spark'));
             }
-        } else {
-            this.driftTimer = 0;
-            this.driftMultiplier = 1;
         }
-
-        // Nitro particles
-        if (this.isNitroActive) {
-            particles.push(new Particle(this.x - forwardX * 25, this.y - forwardY * 25, 'nitro'));
-        }
-
-        // Position update
-        this.x += Math.cos(this.angle) * this.speed;
-        this.y += Math.sin(this.angle) * this.speed;
-
-        // Wall collisions
-        let track = tracks[currentTrackIndex];
-        for (let wall of track.walls) {
-            if (this.x > wall.x && this.x < wall.x + wall.width &&
-                this.y > wall.y && this.y < wall.y + wall.height) {
-                this.speed = -this.speed * 0.5;
-                this.x -= Math.cos(this.angle) * 10;
-                this.y -= Math.sin(this.angle) * 10;
-                score += 50; // penalty or bounce
-            }
-        }
-
-        soundSystem.updateEngine(Math.abs(this.speed), this.maxSpeed);
     }
 
-    draw() {
+    draw(ctx) {
         ctx.save();
         ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle + Math.PI / 2);
+        ctx.rotate(this.angle);
 
-        // Car Body
-        ctx.fillStyle = this.isNitroActive ? '#ff0055' : '#00f3ff';
-        ctx.shadowColor = ctx.fillStyle;
-        ctx.shadowBlur = 15;
+        // Nitro exhaust flame
+        if (this.isNitroActive) {
+            ctx.fillStyle = '#00f3ff';
+            ctx.beginPath();
+            ctx.moveTo(-10, 28);
+            ctx.lineTo(0, 42 + Math.random() * 10);
+            ctx.lineTo(10, 28);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Car Chassis
+        ctx.fillStyle = '#ff0055';
+        ctx.shadowColor = '#ff0055';
+        ctx.shadowBlur = 10;
         ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+        ctx.shadowBlur = 0;
 
         // Windshield
-        ctx.fillStyle = '#0a0a12';
-        ctx.fillRect(-this.width / 3, -this.height / 4, (this.width / 3) * 2, this.height / 4);
+        ctx.fillStyle = '#00f3ff';
+        ctx.fillRect(-10, -10, 20, 16);
 
-        // Wheels
+        // Headlights
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(-this.width / 2 - 4, -this.height / 3, 4, 12);
-        ctx.fillRect(this.width / 2, -this.height / 3, 4, 12);
-        ctx.fillRect(-this.width / 2 - 4, this.height / 4, 4, 12);
-        ctx.fillRect(this.width / 2, this.height / 4, 4, 12);
+        ctx.fillRect(-12, -this.height / 2, 6, 4);
+        ctx.fillRect(6, -this.height / 2, 6, 4);
 
         ctx.restore();
     }
 }
 
-// --- Particle System ---
+const player = new Car();
+
+// --- Particle Engine ---
 class Particle {
     constructor(x, y, type) {
         this.x = x;
         this.y = y;
         this.type = type;
-        this.size = type === 'smoke' ? Math.random() * 8 + 4 : Math.random() * 4 + 2;
-        this.alpha = 1;
-        this.life = type === 'nitro' ? 20 : 40;
-        this.vx = (Math.random() - 0.5) * 2;
-        this.vy = (Math.random() - 0.5) * 2;
+        this.life = 1.0;
+        this.decay = Math.random() * 0.04 + 0.03;
+        
+        if (type === 'smoke') {
+            this.size = Math.random() * 8 + 6;
+            this.vx = (Math.random() - 0.5) * 0.8;
+            this.vy = (Math.random() - 0.5) * 0.8;
+        } else if (type === 'spark') {
+            this.size = Math.random() * 3 + 2;
+            this.vx = (Math.random() - 0.5) * 4;
+            this.vy = (Math.random() - 0.5) * 4;
+        } else if (type === 'nitro') {
+            this.size = Math.random() * 6 + 4;
+            this.vx = (Math.random() - 0.5) * 1.5;
+            this.vy = (Math.random() - 0.5) * 1.5;
+        }
     }
 
     update() {
         this.x += this.vx;
         this.y += this.vy;
-        this.alpha -= 1 / this.life;
+        this.life -= this.decay;
     }
 
-    draw() {
+    draw(ctx) {
         ctx.save();
-        ctx.globalAlpha = Math.max(0, this.alpha);
+        ctx.globalAlpha = this.life;
         if (this.type === 'smoke') {
-            ctx.fillStyle = 'rgba(200, 200, 200, 0.5)';
+            ctx.fillStyle = `rgba(180, 180, 180, ${this.life * 0.5})`;
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
             ctx.fill();
@@ -317,7 +400,7 @@ class Particle {
             ctx.fillStyle = '#f3e600';
             ctx.fillRect(this.x, this.y, this.size, this.size);
         } else if (this.type === 'nitro') {
-            ctx.fillStyle = '#ff0055';
+            ctx.fillStyle = '#00f3ff';
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
             ctx.fill();
@@ -326,233 +409,205 @@ class Particle {
     }
 }
 
-let car = null;
 let particles = [];
+
+// --- Game Management & Race Tracking ---
 let currentLap = 1;
-let totalLaps = 3;
+const totalLaps = 3;
+let currentCheckpointIndex = 0;
 let raceStartTime = 0;
-let currentLapTime = 0;
-let bestLapTime = Infinity;
-let finalScore = 0;
-let score = 0;
-let nextCheckpoint = 0;
+let currentRaceTime = 0;
+let bestLapTimes = JSON.parse(localStorage.getItem('nitro_drift_best_laps')) || {};
+let screenShakeTimer = 0;
 
-// Load Best Times from LocalStorage
-function getBestTimeKey() {
-    return `nitro_drift_best_${currentTrackIndex}`;
+const keys = {};
+window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) && gameState === STATES.PLAYING) {
+        e.preventDefault();
+    }
+    if ((e.code === 'KeyP' || e.code === 'Escape') && (gameState === STATES.PLAYING || gameState === STATES.PAUSED)) {
+        togglePause();
+    }
+});
+window.addEventListener('keyup', e => {
+    keys[e.code] = false;
+});
+
+function triggerScreenShake(duration = 15) {
+    screenShakeTimer = duration;
 }
 
-function loadBestTime() {
-    const val = localStorage.getItem(getBestTimeKey());
-    bestLapTime = val ? parseFloat(val) : Infinity;
+function startRace() {
+    sounds.init();
+    sounds.playUISound(587.33, 'triangle', 0.15);
+    currentTrackIndex = parseInt(document.querySelector('.track-card.selected').dataset.track);
+    player.reset();
+    currentLap = 1;
+    currentCheckpointIndex = 0;
+    raceStartTime = performance.now();
+    currentRaceTime = 0;
+    particles = [];
+    
+    document.getElementById('main-menu').classList.add('hidden');
+    document.getElementById('hud').classList.remove('hidden');
+    gameState = STATES.PLAYING;
 }
 
-function saveBestTime(time) {
-    if (time < bestLapTime) {
-        bestLapTime = time;
-        localStorage.setItem(getBestTimeKey(), bestLapTime);
+function togglePause() {
+    if (gameState === STATES.PLAYING) {
+        gameState = STATES.PAUSED;
+        document.getElementById('pause-menu').classList.remove('hidden');
+        sounds.playUISound(300, 'sine', 0.1);
+    } else if (gameState === STATES.PAUSED) {
+        gameState = STATES.PLAYING;
+        document.getElementById('pause-menu').classList.add('hidden');
+        raceStartTime += (performance.now() - pauseStartTime);
+        sounds.playUISound(450, 'sine', 0.1);
     }
 }
+let pauseStartTime = 0;
 
-// --- Game Initialization & Loops ---
-function initGame() {
-    loadBestTime();
-    let track = tracks[currentTrackIndex];
-    car = new Car(track.spawnPos.x, track.spawnPos.y, track.spawnPos.angle);
-    particles = [];
-    currentLap = 1;
-    raceStartTime = performance.now();
-    currentLapTime = 0;
-    score = 0;
-    nextCheckpoint = 0;
+function finishRace() {
+    gameState = STATES.GAMEOVER;
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('gameover-menu').classList.remove('hidden');
+    
+    const formattedTime = formatTime(currentRaceTime);
+    document.getElementById('final-time').innerText = formattedTime;
+    
+    const trackName = tracks[currentTrackIndex].name;
+    const best = bestLapTimes[trackName] || currentRaceTime;
+    if (currentRaceTime < best || !bestLapTimes[trackName]) {
+        bestLapTimes[trackName] = currentRaceTime;
+        localStorage.setItem('nitro_drift_best_laps', JSON.stringify(bestLapTimes));
+    }
+    document.getElementById('final-best-lap').innerText = formatTime(bestLapTimes[trackName]);
+    sounds.playUISound(650, 'square', 0.3);
 }
 
-function update() {
-    if (gameState !== STATES.PLAYING) return;
+function formatTime(ms) {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    const centiseconds = Math.floor((ms % 1000) / 10);
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
+}
 
-    car.update();
+// --- UI Event Listeners ---
+document.getElementById('btn-start').addEventListener('click', startRace);
+document.getElementById('btn-tracks').addEventListener('click', () => {
+    sounds.playUISound(500);
+    document.getElementById('main-menu').classList.add('hidden');
+    document.getElementById('track-select-menu').classList.remove('hidden');
+});
+document.getElementById('btn-instructions').addEventListener('click', () => {
+    sounds.playUISound(500);
+    document.getElementById('main-menu').classList.add('hidden');
+    document.getElementById('instructions-menu').classList.remove('hidden');
+});
+document.getElementById('btn-back-menu').addEventListener('click', () => {
+    sounds.playUISound(400);
+    document.getElementById('track-select-menu').classList.add('hidden');
+    document.getElementById('main-menu').classList.remove('hidden');
+});
+document.getElementById('btn-back-instructions').addEventListener('click', () => {
+    sounds.playUISound(400);
+    document.getElementById('instructions-menu').classList.add('hidden');
+    document.getElementById('main-menu').classList.remove('hidden');
+});
+document.getElementById('btn-resume').addEventListener('click', togglePause);
+document.getElementById('btn-restart').addEventListener('click', () => {
+    document.getElementById('pause-menu').classList.add('hidden');
+    document.getElementById('gameover-menu').classList.add('hidden');
+    startRace();
+});
+document.getElementById('btn-quit').addEventListener('click', () => {
+    document.getElementById('pause-menu').classList.add('hidden');
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('main-menu').classList.remove('hidden');
+    gameState = STATES.MENU;
+});
+document.getElementById('btn-play-again').addEventListener('click', () => {
+    document.getElementById('gameover-menu').classList.add('hidden');
+    startRace();
+});
+document.getElementById('btn-gameover-quit').addEventListener('click', () => {
+    document.getElementById('gameover-menu').classList.add('hidden');
+    document.getElementById('main-menu').classList.remove('hidden');
+    gameState = STATES.MENU;
+});
 
-    // Update particles
+document.querySelectorAll('.track-card').forEach(card => {
+    card.addEventListener('click', () => {
+        sounds.playUISound(550);
+        document.querySelectorAll('.track-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+    });
+});
+
+// --- Main Game Loop ---
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    if (screenShakeTimer > 0) {
+        screenShakeTimer--;
+        const offsetX = (Math.random() - 0.5) * 8;
+        const offsetY = (Math.random() - 0.5) * 8;
+        ctx.translate(offsetX, offsetY);
+    }
+
+    const track = tracks[currentTrackIndex];
+    track.draw(ctx);
+
+    if (gameState === STATES.PLAYING) {
+        currentRaceTime = performance.now() - raceStartTime;
+        player.update(keys);
+
+        // Checkpoint validation
+        const cp = track.checkpoints[currentCheckpointIndex];
+        const dist = Math.hypot(player.x - cp.x, player.y - cp.y);
+        if (dist < cp.radius) {
+            currentCheckpointIndex++;
+            sounds.playUISound(700, 'sine', 0.05);
+            if (currentCheckpointIndex >= track.checkpoints.length) {
+                currentCheckpointIndex = 0;
+                currentLap++;
+                if (currentLap > totalLaps) {
+                    finishRace();
+                }
+            }
+        }
+
+        // Out of bounds / wall check simulation
+        if (player.x < 50 || player.x > canvas.width - 50 || player.y < 50 || player.y > canvas.height - 50) {
+            player.speed *= 0.7;
+            triggerScreenShake(8);
+            sounds.playCrash();
+        }
+
+        // Update HUD elements
+        document.getElementById('hud-lap').innerText = `${Math.min(currentLap, totalLaps)} / ${totalLaps}`;
+        document.getElementById('hud-time').innerText = formatTime(currentRaceTime);
+        const trackName = track.name;
+        document.getElementById('hud-best').innerText = bestLapTimes[trackName] ? formatTime(bestLapTimes[trackName]) : '--:--.--';
+        document.getElementById('hud-speed').innerText = Math.floor((Math.abs(player.speed) / player.maxSpeed) * 180);
+        document.getElementById('nitro-fill').style.width = `${player.nitro}%`;
+    }
+
+    // Update & Draw Particles
     for (let i = particles.length - 1; i >= 0; i--) {
         particles[i].update();
-        if (particles[i].alpha <= 0) particles.splice(i, 1);
-    }
-
-    // Timing
-    let now = performance.now();
-    currentLapTime = (now - raceStartTime) / 1000;
-
-    // Checkpoints & Laps
-    let track = tracks[currentTrackIndex];
-    let cp = track.checkpoints[nextCheckpoint];
-    if (car.x > cp.x && car.x < cp.x + cp.width && car.y > cp.y && car.y < cp.y + cp.height) {
-        nextCheckpoint = (nextCheckpoint + 1) % track.checkpoints.length;
-        score += 200 * car.driftMultiplier;
-    }
-
-    // Start/Finish Line Check
-    let sl = track.startLine;
-    if (car.x > sl.x && car.x < sl.x + sl.width && car.y > sl.y && car.y < sl.y + sl.height) {
-        if (nextCheckpoint === 0 && currentLapTime > 5) {
-            saveBestTime(currentLapTime);
-            if (currentLap >= totalLaps) {
-                endGame();
-            } else {
-                currentLap++;
-                raceStartTime = performance.now();
-                nextCheckpoint = 0;
-            }
+        particles[i].draw(ctx);
+        if (particles[i].life <= 0) {
+            particles.splice(i, 1);
         }
     }
 
-    updateHUD();
-}
+    player.draw(ctx);
+    ctx.restore();
 
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    let track = tracks[currentTrackIndex];
-
-    // Draw Track Background
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Draw Walls
-    ctx.fillStyle = '#2b2b40';
-    for (let wall of track.walls) {
-        ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-        ctx.strokeStyle = '#00f3ff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(wall.x, wall.y, wall.width, wall.height);
-    }
-
-    // Draw Start Line
-    ctx.fillStyle = '#f3e600';
-    ctx.fillRect(track.startLine.x, track.startLine.y, track.startLine.width, track.startLine.height);
-
-    // Draw Checkpoints (debug/hint)
-    ctx.strokeStyle = 'rgba(0, 243, 255, 0.2)';
-    ctx.lineWidth = 1;
-    for (let cp of track.checkpoints) {
-        ctx.strokeRect(cp.x, cp.y, cp.width, cp.height);
-    }
-
-    // Draw Particles
-    for (let p of particles) {
-        p.draw();
-    }
-
-    // Draw Car
-    if (car) car.draw();
-}
-
-function gameLoop() {
-    update();
-    draw();
     requestAnimationFrame(gameLoop);
 }
 
-// --- HUD Management ---
-function updateHUD() {
-    document.getElementById('val-lap').innerText = `${currentLap}/${totalLaps}`;
-    document.getElementById('val-time').innerText = currentLapTime.toFixed(2);
-    document.getElementById('val-speed').innerText = Math.round(Math.abs(car.speed) * 15);
-    document.getElementById('val-drift').innerText = car.driftMultiplier;
-    document.getElementById('nitro-bar-fill').style.width = `${car.nitro}%`;
-}
-
-// --- UI State Management ---
-const overlays = {
-    menu: document.getElementById('menu-overlay'),
-    tracks: document.getElementById('track-overlay'),
-    instructions: document.getElementById('instructions-overlay'),
-    pause: document.getElementById('pause-overlay'),
-    gameover: document.getElementById('gameover-overlay'),
-    hud: document.getElementById('hud')
-};
-
-function showOverlay(name) {
-    Object.keys(overlays).forEach(key => {
-        if (key === 'hud') {
-            if (name === 'playing') overlays.hud.classList.remove('hidden');
-            else overlays.hud.classList.add('hidden');
-        } else {
-            if (key === name) overlays[key].classList.remove('hidden');
-            else overlays[key].classList.add('hidden');
-        }
-    });
-}
-
-function startGame() {
-    soundSystem.playClick();
-    gameState = STATES.PLAYING;
-    initGame();
-    showOverlay('playing');
-}
-
-function pauseGame() {
-    gameState = STATES.PAUSED;
-    showOverlay('pause');
-}
-
-function resumeGame() {
-    soundSystem.playClick();
-    gameState = STATES.PLAYING;
-    showOverlay('playing');
-}
-
-function endGame() {
-    gameState = STATES.GAMEOVER;
-    finalScore = Math.round(score + (bestLapTime !== Infinity ? 10000 / bestLapTime : 0));
-    document.getElementById('go-time').innerText = currentLapTime.toFixed(2) + 's';
-    document.getElementById('go-best').innerText = bestLapTime !== Infinity ? bestLapTime.toFixed(2) + 's' : 'N/A';
-    document.getElementById('go-drift').innerText = `${car.driftMultiplier}x`;
-    document.getElementById('go-score').innerText = finalScore;
-    showOverlay('gameover');
-}
-
-// --- DOM Event Listeners ---
-document.getElementById('btn-start').addEventListener('click', startGame);
-document.getElementById('btn-tracks').addEventListener('click', () => {
-    soundSystem.playClick();
-    showOverlay('tracks');
-});
-document.getElementById('btn-instructions').addEventListener('click', () => {
-    soundSystem.playClick();
-    showOverlay('instructions');
-});
-document.getElementById('btn-back-track').addEventListener('click', () => {
-    soundSystem.playClick();
-    showOverlay('menu');
-});
-document.getElementById('btn-back-menu').addEventListener('click', () => {
-    soundSystem.playClick();
-    showOverlay('menu');
-});
-document.getElementById('btn-resume').addEventListener('click', resumeGame);
-document.getElementById('btn-restart').addEventListener('click', startGame);
-document.getElementById('btn-quit').addEventListener('click', () => {
-    soundSystem.playClick();
-    gameState = STATES.MENU;
-    showOverlay('menu');
-});
-document.getElementById('btn-play-again').addEventListener('click', startGame);
-document.getElementById('btn-go-menu').addEventListener('click', () => {
-    soundSystem.playClick();
-    gameState = STATES.MENU;
-    showOverlay('menu');
-});
-
-// Track selection cards
-const trackCards = document.querySelectorAll('.track-card');
-trackCards.forEach(card => {
-    card.addEventListener('click', () => {
-        soundSystem.playClick();
-        trackCards.forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        currentTrackIndex = parseInt(card.getAttribute('data-track'));
-    });
-});
-
-// Start game loop
 requestAnimationFrame(gameLoop);

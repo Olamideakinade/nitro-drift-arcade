@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nitro Drift Arcade</title>
+    <title>Nitro Drift Arcade v1.2.0</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,91 +11,101 @@
 </head>
 <body>
     <div id="game-container">
-        <canvas id="gameCanvas" width="1024" height="768"></canvas>
+        <canvas id="gameCanvas" width="1024" height="576"></canvas>
         
-        <!-- HUD Overlay -->
-        <div id="hud" class="hidden">
-            <div class="hud-top">
-                <div class="hud-box" id="hud-lap">LAP: <span id="val-lap">1/3</span></div>
-                <div class="hud-box" id="hud-time">TIME: <span id="val-time">00.00</span></div>
-                <div class="hud-box" id="hud-speed">SPEED: <span id="val-speed">0</span> MPH</div>
+        <!-- Main Menu Overlay -->
+        <div id="main-menu" class="overlay-screen">
+            <div class="brand-header">
+                <h1 class="glitch-title">NITRO DRIFT</h1>
+                <p class="subtitle">ARCADE v1.2.0</p>
             </div>
-            <div class="hud-bottom">
-                <div class="hud-nitro-container">
-                    <span>NITRO</span>
-                    <div class="nitro-bar-bg"><div id="nitro-bar-fill"></div></div>
-                </div>
-                <div class="hud-drift" id="hud-drift">DRIFT COMBO: <span id="val-drift">0</span>x</div>
-            </div>
-        </div>
-
-        <!-- Menu Overlay -->
-        <div id="menu-overlay" class="overlay">
-            <h1 class="glitch-title">NITRO DRIFT</h1>
-            <p class="subtitle">ARCADE V1.1.0</p>
             <div class="menu-buttons">
-                <button class="btn neon-btn" id="btn-start">START RACE</button>
-                <button class="btn neon-btn" id="btn-tracks">SELECT TRACK</button>
-                <button class="btn neon-btn" id="btn-instructions">HOW TO PLAY</button>
+                <button id="btn-start" class="arcade-btn primary">START RACE</button>
+                <button id="btn-tracks" class="arcade-btn">SELECT TRACK</button>
+                <button id="btn-instructions" class="arcade-btn">HOW TO PLAY</button>
             </div>
         </div>
 
-        <!-- Track Select Overlay -->
-        <div id="track-overlay" class="overlay hidden">
-            <h2>SELECT TRACK</h2>
-            <div class="track-list">
+        <!-- Track Selection Overlay -->
+        <div id="track-select-menu" class="overlay-screen hidden">
+            <h2>SELECT CIRCUIT</h2>
+            <div class="track-cards">
                 <div class="track-card selected" data-track="0">
-                    <h3>CIRCUIT NOIR</h3>
-                    <p>Technical twists & hairpins</p>
+                    <h3>Circuit Noir</h3>
+                    <p>Tight technical corners & sharp hairpins.</p>
                 </div>
                 <div class="track-card" data-track="1">
-                    <h3>OVAL SPEEDWAY</h3>
-                    <p>High speed wide turns</p>
+                    <h3>Oval Speedway</h3>
+                    <p>High-speed banked turns & long straights.</p>
                 </div>
                 <div class="track-card" data-track="2">
-                    <h3>VIPER CANYON</h3>
-                    <p>Tight hazards & endurance</p>
+                    <h3>Viper Canyon</h3>
+                    <p>Winding desert tracks with hazardous obstacles.</p>
                 </div>
             </div>
-            <button class="btn neon-btn" id="btn-back-track">BACK</button>
+            <button id="btn-back-menu" class="arcade-btn">BACK</button>
         </div>
 
         <!-- Instructions Overlay -->
-        <div id="instructions-overlay" class="overlay hidden">
-            <h2>HOW TO PLAY</h2>
-            <div class="instruction-box">
-                <p><strong>Steering:</strong> Arrow Keys or A / D</p>
-                <p><strong>Accelerate / Brake:</strong> Up / Down or W / S</p>
-                <p><strong>Nitro Boost:</strong> Shift or Space</p>
-                <p><strong>Pause:</strong> Escape or P</p>
-                <br>
-                <p>Drift around corners to multiply score and gain turbo momentum! Avoid hitting walls to keep your lap times pristine.</p>
+        <div id="instructions-menu" class="overlay-screen hidden">
+            <h2>DRIVER MANUAL</h2>
+            <div class="instructions-content">
+                <div class="control-row"><span>Steering:</span> <strong>LEFT / RIGHT</strong> (or A/D)</div>
+                <div class="control-row"><span>Accelerate:</span> <strong>UP</strong> (or W)</div>
+                <div class="control-row"><span>Brake / Reverse:</span> <strong>DOWN</strong> (or S)</div>
+                <div class="control-row"><span>Nitro Boost:</span> <strong>SPACEBAR</strong></div>
+                <div class="control-row"><span>Pause:</span> <strong>P / ESC</strong></div>
             </div>
-            <button class="btn neon-btn" id="btn-back-menu">BACK</button>
+            <button id="btn-back-instructions" class="arcade-btn">BACK</button>
         </div>
 
         <!-- Pause Overlay -->
-        <div id="pause-overlay" class="overlay hidden">
+        <div id="pause-menu" class="overlay-screen hidden">
             <h2>PAUSED</h2>
             <div class="menu-buttons">
-                <button class="btn neon-btn" id="btn-resume">RESUME</button>
-                <button class="btn neon-btn" id="btn-restart">RESTART</button>
-                <button class="btn neon-btn" id="btn-quit">MAIN MENU</button>
+                <button id="btn-resume" class="arcade-btn primary">RESUME</button>
+                <button id="btn-restart" class="arcade-btn">RESTART</button>
+                <button id="btn-quit" class="arcade-btn">MAIN MENU</button>
             </div>
         </div>
 
         <!-- Game Over Overlay -->
-        <div id="gameover-overlay" class="overlay hidden">
-            <h2 id="go-title">RACE FINISHED!</h2>
+        <div id="gameover-menu" class="overlay-screen hidden">
+            <h2 id="gameover-title">RACE FINISHED</h2>
             <div class="score-board">
-                <p>Final Time: <span id="go-time">00.00</span></p>
-                <p>Best Lap: <span id="go-best">00.00</span></p>
-                <p>Max Drift Combo: <span id="go-drift">0x</span></p>
-                <p>Total Score: <span id="go-score">0</span></p>
+                <p>Total Time: <span id="final-time">00:00.00</span></p>
+                <p>Best Lap: <span id="final-best-lap">00:00.00</span></p>
             </div>
             <div class="menu-buttons">
-                <button class="btn neon-btn" id="btn-play-again">PLAY AGAIN</button>
-                <button class="btn neon-btn" id="btn-go-menu">MAIN MENU</button>
+                <button id="btn-play-again" class="arcade-btn primary">PLAY AGAIN</button>
+                <button id="btn-gameover-quit" class="arcade-btn">MAIN MENU</button>
+            </div>
+        </div>
+
+        <!-- In-Game HUD -->
+        <div id="hud" class="hidden">
+            <div class="hud-top">
+                <div class="hud-box">
+                    <span class="hud-label">LAP</span>
+                    <span id="hud-lap">1 / 3</span>
+                </div>
+                <div class="hud-box">
+                    <span class="hud-label">TIME</span>
+                    <span id="hud-time">00:00.00</span>
+                </div>
+                <div class="hud-box">
+                    <span class="hud-label">BEST</span>
+                    <span id="hud-best">--:--.--</span>
+                </div>
+            </div>
+            <div class="hud-bottom">
+                <div class="speedometer-container">
+                    <span id="hud-speed">0</span> <small>MPH</small>
+                </div>
+                <div class="nitro-gauge">
+                    <div class="hud-label">NITRO</div>
+                    <div class="gauge-bar"><div id="nitro-fill"></div></div>
+                </div>
             </div>
         </div>
     </div>

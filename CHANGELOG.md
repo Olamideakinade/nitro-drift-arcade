@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.0] - 2025-06-01
+
+### Added & Overhauled
+- **Visual Polish & UI Overhaul**: Completely redesigned HUD, menus, and overlays with glassmorphic styling, neon glows, and smooth CSS keyframe animations.
+- **Juicy Screen Shake**: Implemented camera shake on severe collisions and high-intensity nitro acceleration.
+- **Advanced Particle FX**: Expanded particle engine with glowing sparks, smoke plumes, and fiery exhaust trails.
+- **Audio Fine-Tuning**: Polished Web Audio API synthesizer parameters for realistic engine pitches and tire friction squeals.
+
 ## [v1.1.0] - 2025-05-18
 
 ### Added
@@ -9,16 +17,4 @@ All notable changes to this project will be documented in this file.
 - **Multiple Track Selection**: Added 3 distinct tracks (Circuit Noir, Oval Speedway, Viper Canyon).
 - **Persistent Best Lap & Scores**: LocalStorage tracking for personal best lap times across all tracks.
 - **Advanced Particle Engine**: Added tire smoke plumes, drift sparks, and dynamic exhaust flames.
-- **Enhanced HUD**: Added speedometer, nitro gauge, drift score multiplier, and lap counter.
-
-### Changed
-- Refactored game loop for delta-time consistency across refresh rates.
-- Improved collision detection and wall-bounce mechanics.
-- Polished CSS styling and responsive container layout.
-
-## [v1.0.0] - 2025-01-10
-
-### Initial Release
-- Core top-down 2D racing physics.
-- Basic drift mechanics and particle trail.
-- Main menu, gameplay loop, pause, and game over screens.
+- **Enhanced HUD**: Added speedometer, lap counter, minimap, and position indicators.
