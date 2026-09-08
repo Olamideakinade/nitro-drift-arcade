@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nitro Drift Arcade</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="1024" height="576"></canvas>
+        
+        <!-- Main Menu Overlay -->
+        <div id="menu-screen" class="screen active">
+            <div class="logo-area">
+                <h1 class="glow-text">NITRO DRIFT</h1>
+                <h2>ARCADE RACING</h2>
+            </div>
+            <div class="menu-buttons">
+                <button id="btn-play" class="btn neon-btn">START ENGINE</button>
+                <button id="btn-tracks" class="btn neon-btn secondary">SELECT TRACK</button>
+                <button id="btn-instructions" class="btn neon-btn secondary">HOW TO PLAY</button>
+            </div>
+        </div>
+
+        <!-- Track Select Overlay -->
+        <div id="track-screen" class="screen">
+            <h2>SELECT CIRCUIT</h2>
+            <div class="track-grid">
+                <div class="track-card selected" data-track="0">
+                    <h3>Oval Speedway</h3>
+                    <p>Classic high-speed oval with smooth sweeping turns.</p>
+                </div>
+                <div class="track-card" data-track="1">
+                    <h3>Neon Circuit</h3>
+                    <p>Technical hairpin turns through cyberpunk city streets.</p>
+                </div>
+                <div class="track-card" data-track="2">
+                    <h3>Hazard Canyon</h3>
+                    <p>Winding desert canyon with tight chicanes and obstacle zones.</p>
+                </div>
+            </div>
+            <button id="btn-back-menu" class="btn neon-btn secondary">BACK TO MENU</button>
+        </div>
+
+        <!-- Instructions Overlay -->
+        <div id="instructions-screen" class="screen">
+            <h2>DRIVER MANUAL</h2>
+            <div class="instructions-content">
+                <div class="control-row"><span>Steering:</span> <span>A / D or Left / Right Arrows</span></div>
+                <div class="control-row"><span>Accelerate:</span> <span>W or Up Arrow</span></div>
+                <div class="control-row"><span>Brake / Reverse:</span> <span>S or Down Arrow</span></div>
+                <div class="control-row"><span>Nitro Boost:</span> <span>Left Shift</span></div>
+                <div class="control-row"><span>Pause:</span> <span>Esc or P</span></div>
+                <p class="tip">Tip: Counter-steer into corners to initiate high-speed drifts and charge nitro!</p>
+            </div>
+            <button id="btn-back-menu-2" class="btn neon-btn secondary">BACK TO MENU</button>
+        </div>
+
+        <!-- HUD Overlay -->
+        <div id="hud" class="hidden">
+            <div class="hud-top">
+                <div class="hud-block">SPEED: <span id="hud-speed">0</span> MPH</div>
+                <div class="hud-block">LAP: <span id="hud-lap">1</span>/3</div>
+                <div class="hud-block">TIME: <span id="hud-time">00.00</span></div>
+            </div>
+            <div class="hud-bottom">
+                <div class="nitro-container">
+                    <span>NITRO</span>
+                    <div class="nitro-bar-bg"><div id="nitro-bar-fill"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pause Overlay -->
+        <div id="pause-screen" class="screen">
+            <h2>GAME PAUSED</h2>
+            <div class="menu-buttons">
+                <button id="btn-resume" class="btn neon-btn">RESUME</button>
+                <button id="btn-restart" class="btn neon-btn secondary">RESTART</button>
+                <button id="btn-quit" class="btn neon-btn secondary">MAIN MENU</button>
+            </div>
+        </div>
+
+        <!-- Game Over / Results Overlay -->
+        <div id="gameover-screen" class="screen">
+            <h2 id="result-title">RACE FINISHED!</h2>
+            <div class="results-box">
+                <p>Total Time: <span id="res-time">00.00</span></p>
+                <p>Best Lap: <span id="res-bestlap">00.00</span></p>
+                <p id="new-record" class="glow-text hidden">NEW TRACK RECORD!</p>
+            </div>
+            <div class="menu-buttons">
+                <button id="btn-play-again" class="btn neon-btn">RACE AGAIN</button>
+                <button id="btn-menu-from-end" class="btn neon-btn secondary">MAIN MENU</button>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
